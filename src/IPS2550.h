@@ -4,6 +4,8 @@
 #include <Arduino.h>
 #include <Wire.h>
 
+#define CONFIG_WAIT_MS 10
+
 enum VDD
 {
     VDD_3V3,
@@ -36,9 +38,10 @@ public:
     TwoWire *m_i2c = NULL;
 
 private:
-    uint16_t read_reg(uint8_t reg_addr);
-    void write_reg(uint8_t reg_addr, uint16_t value);
-    void write_register_bits(uint8_t reg_addr, uint16_t clear_mask, uint16_t set_mask);
+    uint16_t read_register(uint8_t reg_addr);
+    uint16_t read_register_masked(uint8_t reg_addr, uint16_t mask);
+    void write_register(uint8_t reg_addr, uint16_t value);
+    void write_register_masked(uint8_t reg_addr, uint16_t value, uint16_t mask);
 
     void set_voltage(VDD vdd);
     void set_automatic_gain_control(boolean enabled);
@@ -80,9 +83,8 @@ private:
     double estimate_vtx();
 };
 
-uint32_t bit_length(uint32_t n);
-uint32_t first_bit_set(uint32_t n);
-uint16_t crc(uint32_t word, uint8_t polynomial, uint8_t filler = 0);
-uint16_t get_bits_in_word(uint16_t word, uint16_t *bit_list, uint16_t len);
+unsigned bit_length(unsigned n);
+unsigned first_bit_set(unsigned n);
+unsigned crc(unsigned word, unsigned polynomial);
 
 #endif
