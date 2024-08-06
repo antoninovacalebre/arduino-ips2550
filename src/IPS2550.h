@@ -38,7 +38,7 @@ public:
 private:
     uint16_t read_reg(uint8_t reg_addr);
     void write_reg(uint8_t reg_addr, uint16_t value);
-    void write_register_bits(uint8_t reg_addr, uint16_t *bit_list, uint16_t *value_list, uint16_t len);
+    void write_register_bits(uint8_t reg_addr, uint16_t clear_mask, uint16_t set_mask);
 
     void set_voltage(VDD vdd);
     void set_automatic_gain_control(boolean enabled);
@@ -81,6 +81,7 @@ private:
 };
 
 uint32_t bit_length(uint32_t n);
+uint32_t first_bit_set(uint32_t n);
 uint16_t crc(uint32_t word, uint8_t polynomial, uint8_t filler = 0);
 uint16_t get_bits_in_word(uint16_t word, uint16_t *bit_list, uint16_t len);
 
