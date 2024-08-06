@@ -85,6 +85,6 @@ private:
 
 unsigned bit_length(unsigned n);
 unsigned first_bit_set(unsigned n);
-unsigned crc(unsigned word, unsigned polynomial);
+unsigned crc(unsigned word, unsigned polynomial, unsigned filler = 0);
 
 #endif
