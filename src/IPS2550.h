@@ -32,10 +32,11 @@ const double GAIN_FACTORS[] = {2.0, 2.1, 2.18, 2.29, 2.38, 2.5, 2.59, 2.72, 2.83
 class IPS2550
 {
 public:
-    IPS2550(TwoWire &i2c, uint8_t i2c_addr);
+    IPS2550() {};
+    void init(TwoWire &i2c, uint8_t i2c_addr);
 
     uint8_t m_i2c_addr;
-    TwoWire *m_i2c = NULL;
+    TwoWire *m_i2c = nullptr;
 
 private:
     uint16_t read_register(uint8_t reg_addr);
@@ -43,6 +44,7 @@ private:
     void write_register(uint8_t reg_addr, uint16_t value);
     void write_register_masked(uint8_t reg_addr, uint16_t value, uint16_t mask);
 
+public:
     void set_voltage(VDD vdd);
     void set_automatic_gain_control(boolean enabled);
     void set_master_gain_boost(boolean enabled);
@@ -72,19 +74,10 @@ private:
     double get_offset_perc_1();
     double get_offset_perc_2();
     double get_tx_current_bias_uA();
-
-    double get_rx1();
-    double get_rx2();
-    double get_rx1_avg();
-    double get_rx2_avg();
-
-    double estimate_vtx_rms();
-    double estimate_vtx_pp();
-    double estimate_vtx();
 };
 
 unsigned bit_length(unsigned n);
 unsigned first_bit_set(unsigned n);
-unsigned crc(unsigned word, unsigned polynomial, unsigned filler = 0);
+unsigned crc(unsigned word, unsigned polynomial, unsigned filler);
 
 #endif
