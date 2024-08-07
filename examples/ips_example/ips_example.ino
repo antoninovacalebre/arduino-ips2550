@@ -14,9 +14,12 @@
 
 IPS2550 ips;
 
-double get_rx1();
-double get_rx2();
-double estimate_vtx();
+double get_vrx(int pin_rx, int pin_ref);
+double get_vrx_avg(int pin_rx, int pin_ref, int nsamples, int delay_ms);
+
+double estimate_vtx_rms(IPS2550 *a_ips, int pin_rx, int pin_ref);
+double estimate_vtx_pp(IPS2550 *a_ips, int pin_rx, int pin_ref);
+double estimate_vtx(IPS2550 *a_ips, int pin_rx, int pin_ref);
 
 void setup()
 {
@@ -31,6 +34,7 @@ void setup()
     ips.set_automatic_gain_control(false);
     ips.set_master_gain_boost(true);
     ips.set_master_gain_code(48);
+    ips.set_offset_1(1, 0);
     ips.set_current_bias(0xFF);
     ips.set_output_mode(SINGLE_ENDED);
 }
@@ -38,15 +42,65 @@ void setup()
 void loop()
 {
     double freq = ips.get_tx_frequency();
-    Serial.println(freq);
+    double vtx = estimate_vtx_pp(&ips, PIN_RX1, PIN_REF);
+    double vrx1 = get_vrx(PIN_RX1, PIN_REF);
+    double vrx2 = get_vrx(PIN_RX2, PIN_REF);
+
+    Serial.print(freq);
+    Serial.print("\t");
+    Serial.print(vtx);
+    Serial.print("\t");
+    Serial.print(vrx1);
+    Serial.print("\t");
+    Serial.println(vrx2);
 }
 
-double get_rx1()
+double get_vrx(int pin_rx, int pin_ref)
 {
-    return (analogRead(PIN_RX1) - analogRead(PIN_REF)) / 1023 * 3.3;
+    return (analogRead(pin_rx) - analogRead(pin_ref)) / 1023 * 3.3;
 }
 
-double get_rx2()
+double get_vrx_avg(int pin_rx, int pin_ref, int nsamples, int delay_ms)
 {
-    return (analogRead(PIN_RX2) - analogRead(PIN_REF)) / 1023 * 3.3;
+    double rx = 0.0;
+    for (unsigned i = 0; i < nsamples; ++i)
+    {
+        rx += get_vrx(pin_rx, pin_ref);
+        delay(delay_ms);
+    }
+    return rx / nsamples;
+}
+
+double estimate_vtx_rms(IPS2550 *a_ips, int pin_rx, int pin_ref)
+{
+    double vtx = 0.0;
+
+    int starting_offset_sign = a_ips->get_offset_sign_1();
+    uint8_t starting_offset = a_ips->get_offset_code_1();
+
+    double gain = a_ips->get_master_gain();
+    if (a_ips->get_master_gain_boost())
+        gain *= 2;
+
+    a_ips->set_offset_1(-1, 0x7F);
+    double rx1_n = get_vrx_avg(pin_rx, pin_ref, 10, 10);
+
+    a_ips->set_offset_1(1, 0x7F);
+    double rx1_p = get_vrx_avg(pin_rx, pin_ref, 10, 10);
+
+    a_ips->set_offset_1(starting_offset_sign, starting_offset);
+
+    vtx = (rx1_p - rx1_n) / (gain * 0x7F * 2.0 * 0.000015);
+
+    return vtx;
+}
+
+double estimate_vtx(IPS2550 *a_ips, int pin_rx, int pin_ref)
+{
+    return estimate_vtx_rms(a_ips, pin_rx, pin_ref) * sqrt(2);
+}
+
+double estimate_vtx_pp(IPS2550 *a_ips, int pin_rx, int pin_ref)
+{
+    return estimate_vtx(a_ips, pin_rx, pin_ref) * 2.0;
 }
