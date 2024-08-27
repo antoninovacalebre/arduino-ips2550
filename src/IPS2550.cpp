@@ -15,7 +15,7 @@ unsigned first_bit_set(unsigned n)
         return 0;
 
     unsigned i = 0;
-    while (((n & (1 << i)) >> i) != 0)
+    while (((n >> i) & 0b1) != 1)
         i++;
     return i;
 }
