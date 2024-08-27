@@ -35,8 +35,9 @@ void setup()
     ips.set_master_gain_boost(true);
     ips.set_master_gain_code(48);
     ips.set_offset_1(1, 0);
+    ips.set_offset_2(1, 0);
     ips.set_current_bias(0xFF);
-    ips.set_output_mode(SINGLE_ENDED);
+    ips.set_output_mode(SINGLE_ENDED); // needed for this script
 }
 
 void loop()
@@ -63,7 +64,7 @@ double get_vrx(int pin_rx, int pin_ref)
 double get_vrx_avg(int pin_rx, int pin_ref, int nsamples, int delay_ms)
 {
     double rx = 0.0;
-    for (uint64_t i = 0; i < nsamples; ++i)
+    for (uint32_t i = 0; i < nsamples; ++i)
     {
         rx += get_vrx(pin_rx, pin_ref);
         delay(delay_ms);
@@ -92,7 +93,7 @@ double estimate_vtx_rms(IPS2550 *a_ips, int pin_rx, int pin_ref)
 
     vtx = (rx1_p - rx1_n) / (gain * 0x7F * 2.0 * 0.000015);
 
-    return vtx;
+    return abs(vtx);
 }
 
 double estimate_vtx(IPS2550 *a_ips, int pin_rx, int pin_ref)

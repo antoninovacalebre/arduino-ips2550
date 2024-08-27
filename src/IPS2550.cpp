@@ -1,39 +1,39 @@
 #include "Arduino.h"
 #include "IPS2550.h"
 
-uint64_t bit_length(uint64_t n)
+uint32_t most_significant_one(uint32_t n)
 {
-    uint64_t i = 1;
+    uint32_t i = 1;
     while ((n >> i) != 0)
         i++;
     return i;
 }
 
-uint64_t first_bit_set(uint64_t n)
+uint32_t least_significant_one(uint32_t n)
 {
     if (n == 0)
         return 0;
 
-    uint64_t i = 0;
+    uint32_t i = 0;
     while (((n >> i) & 0b1) != 1)
         i++;
     return i;
 }
 
-uint64_t crc(uint64_t word, uint64_t polynomial, uint64_t filler)
+uint32_t crc(uint32_t word, uint32_t polynomial, uint32_t filler)
 {
-    uint64_t g = bit_length(polynomial);
-    uint64_t n = g - 1;
+    uint32_t g = most_significant_one(polynomial);
+    uint32_t n = g - 1;
     word = (word << n) | filler;
     while ((word >> n) != 0)
     {
-        uint64_t first_one = bit_length(word);
-        uint64_t xor_mask = ~(0xFF << g) << (first_one - g);
-        uint64_t xor_val = polynomial << (first_one - g);
+        uint32_t first_one = most_significant_one(word);
+        uint32_t xor_mask = ~((uint32_t)-1 << g) << (first_one - g);
+        uint32_t xor_val = polynomial << (first_one - g);
         word = ((word & xor_mask) ^ xor_val) | (word & ~xor_mask);
     }
-
-    return word & ~(0xFF << g);
+    uint32_t crc = word & ~((uint32_t)-1 << g);
+    return crc;
 }
 
 void IPS2550::init(TwoWire &i2c, uint8_t i2c_addr)
@@ -42,71 +42,63 @@ void IPS2550::init(TwoWire &i2c, uint8_t i2c_addr)
     m_i2c_addr = i2c_addr;
 }
 
-int IPS2550::read_register(uint8_t reg_addr)
+uint16_t IPS2550::read_register(uint8_t reg_addr)
 {
-    m_i2c->beginTransmission(m_i2c_addr);
-    m_i2c->write(reg_addr);
-    m_i2c->endTransmission();
+    unsigned i = 0;
+    uint16_t reg, word, crc_bits;
+    reg = word = crc_bits = 0;
 
-    m_i2c->requestFrom(m_i2c_addr, (uint8_t)2);
-    // while (!m_i2c->available())
-    // {
-    // }
-    uint16_t data = m_i2c->read() << 8;
-    data = data | m_i2c->read();
-    uint8_t crc_bits = data & 0x0007;
-    uint16_t reg = data >> 5;
-
-    uint64_t message = ((reg << 5) & 0xFF00) | (reg & 0x0007);
-    if (crc(message, 0b1011, crc_bits) != 0)
+    do
     {
-        Serial.println("Read failed");
-        return -1;
-    }
+        if (i > 0)
+            Serial.println("Read CRC check failed, retrying read...");
+
+        m_i2c->beginTransmission(m_i2c_addr);
+        m_i2c->write(reg_addr);
+        m_i2c->endTransmission();
+
+        m_i2c->requestFrom(m_i2c_addr, (uint8_t)2);
+        uint16_t codeword = m_i2c->read() << 8;
+        codeword = codeword | m_i2c->read();
+
+        crc_bits = codeword & 0x0007;
+        reg = codeword >> 5;
+
+        word = ((reg << 5) & 0xFF00) | (reg & 0x0007);
+
+        i++;
+    } while (crc(word, 0b1011, crc_bits) != 0);
 
     return reg;
 }
 
-int IPS2550::read_register_masked(uint8_t reg_addr, uint16_t mask)
+uint16_t IPS2550::read_register_masked(uint8_t reg_addr, uint16_t mask)
 {
-    int reg = read_register(reg_addr);
-    if (reg < 0)
-        return -1;
-
-    return (reg & mask) >> first_bit_set(mask);
+    uint16_t reg = read_register(reg_addr);
+    return (reg & mask) >> least_significant_one(mask);
 }
 
-void IPS2550::write_register(uint32_t reg_addr, uint32_t value)
+void IPS2550::write_register(uint8_t reg_addr, uint16_t value)
 {
-    uint32_t crc_in = ((reg_addr & 0x007F) << 17) | ((value & 0x07F8) << 5) | (value & 0x0007);
-    uint8_t crc_bits = crc(crc_in, 0b1011, 0);
-    uint16_t message = (value << 5) | 0x18 | crc_bits;
+    uint32_t block1 = reg_addr & 0x7F;
+    uint32_t block2 = value & 0x07F8;
+    uint32_t block3 = value & 0x0007;
+    uint32_t word = (block1 << 17) | (block2 << 5) | block3;
 
-    Serial.println("ADSADASD");
-    Serial.println(reg_addr, BIN);
-    Serial.println(value, BIN);
-    Serial.println(crc_bits, BIN);
-    Serial.println(crc_in, BIN);
+    uint8_t crc_bits = crc(word, 0b1011, 0);
+    uint16_t codeword = (value << 5) | 0x18 | crc_bits;
 
     m_i2c->beginTransmission(m_i2c_addr);
     m_i2c->write(reg_addr);
-    m_i2c->endTransmission();
-
-    m_i2c->beginTransmission(m_i2c_addr);
-    m_i2c->write(message >> 8);
-    m_i2c->write(message & 0x00FF);
+    m_i2c->write(codeword >> 8);
+    m_i2c->write(codeword & 0x00FF);
     m_i2c->endTransmission();
 }
 
 void IPS2550::write_register_masked(uint8_t reg_addr, uint16_t value, uint16_t mask)
 {
-    int reg = read_register(reg_addr);
-    if (reg < 0)
-        return;
-
-    uint16_t ureg = (uint16_t)reg;
-
-    uint16_t new_word = (ureg & ~mask) | (value & mask);
+    uint16_t reg = read_register(reg_addr);
+    uint16_t new_word = (reg & ~mask) | (value & mask);
 
     write_register(reg_addr, new_word);
 }
@@ -140,7 +132,7 @@ void IPS2550::set_master_gain_code(uint8_t code)
 {
     code = code <= 95 ? code : 95;
 
-    // write_register_masked(0x42, code, 0x007F);
+    write_register_masked(0x42, code, 0x007F);
     write_register_masked(0x02, code, 0x007F);
     delay(CONFIG_WAIT_MS);
 }
