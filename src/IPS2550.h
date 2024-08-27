@@ -38,10 +38,10 @@ public:
     uint8_t m_i2c_addr;
     TwoWire *m_i2c = nullptr;
 
-private:
-    uint16_t read_register(uint8_t reg_addr);
-    uint16_t read_register_masked(uint8_t reg_addr, uint16_t mask);
-    void write_register(uint8_t reg_addr, uint16_t value);
+public:
+    int read_register(uint8_t reg_addr);
+    int read_register_masked(uint8_t reg_addr, uint16_t mask);
+    void write_register(uint32_t reg_addr, uint32_t value);
     void write_register_masked(uint8_t reg_addr, uint16_t value, uint16_t mask);
 
 public:
@@ -76,8 +76,8 @@ public:
     double get_tx_current_bias_uA();
 };
 
-unsigned bit_length(unsigned n);
-unsigned first_bit_set(unsigned n);
-unsigned crc(unsigned word, unsigned polynomial, unsigned filler);
+uint64_t bit_length(uint64_t n);
+uint64_t first_bit_set(uint64_t n);
+uint64_t crc(uint64_t word, uint64_t polynomial, uint64_t filler);
 
 #endif

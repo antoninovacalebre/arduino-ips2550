@@ -63,7 +63,7 @@ double get_vrx(int pin_rx, int pin_ref)
 double get_vrx_avg(int pin_rx, int pin_ref, int nsamples, int delay_ms)
 {
     double rx = 0.0;
-    for (unsigned i = 0; i < nsamples; ++i)
+    for (uint64_t i = 0; i < nsamples; ++i)
     {
         rx += get_vrx(pin_rx, pin_ref);
         delay(delay_ms);
