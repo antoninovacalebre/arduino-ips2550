@@ -1,6 +1,14 @@
 #include "Arduino.h"
 #include "IPS2550.h"
 
+uint8_t parity_bit(uint8_t data) {
+  uint8_t parity = 0;
+  for (int i = 0; i < 8; i++) {
+    parity ^= (data >> i) & 0x01; // XOR each bit
+  }
+  return parity;
+}
+
 uint32_t most_significant_one(uint32_t n)
 {
     uint32_t i = 1;
@@ -51,7 +59,9 @@ uint16_t IPS2550::read_register(uint8_t reg_addr)
     do
     {
         if (i > 0)
+        {
             Serial.println("Read CRC check failed, retrying read...");
+        }
 
         m_i2c->beginTransmission(m_i2c_addr);
         m_i2c->write(reg_addr);
@@ -67,6 +77,9 @@ uint16_t IPS2550::read_register(uint8_t reg_addr)
         word = ((reg << 5) & 0xFF00) | (reg & 0x0007);
 
         i++;
+
+        delay(10);
+
     } while (crc(word, 0b1011, crc_bits) != 0);
 
     return reg;
@@ -88,8 +101,10 @@ void IPS2550::write_register(uint8_t reg_addr, uint16_t value)
     uint8_t crc_bits = crc(word, 0b1011, 0);
     uint16_t codeword = (value << 5) | 0x18 | crc_bits;
 
+    uint8_t parity = parity_bit(m_i2c_addr << 1);
+    
     m_i2c->beginTransmission(m_i2c_addr);
-    m_i2c->write(reg_addr);
+    m_i2c->write(reg_addr | (parity << 7));
     m_i2c->write(codeword >> 8);
     m_i2c->write(codeword & 0x00FF);
     m_i2c->endTransmission();
@@ -99,8 +114,9 @@ void IPS2550::write_register_masked(uint8_t reg_addr, uint16_t value, uint16_t m
 {
     uint16_t reg = read_register(reg_addr);
     uint16_t new_word = (reg & ~mask) | (value & mask);
-
+    delay(10);
     write_register(reg_addr, new_word);
+    delay(10);
 }
 
 void IPS2550::set_voltage(VDD vdd)
@@ -213,7 +229,7 @@ boolean IPS2550::get_automatic_gain_control()
 
 uint8_t IPS2550::get_master_gain_code()
 {
-    return read_register_masked(0x02, 0x007F);
+    return read_register_masked(0x42, 0x007F);
 }
 
 double IPS2550::get_master_gain()
